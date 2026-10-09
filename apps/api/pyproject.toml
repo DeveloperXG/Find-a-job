@@ -19,6 +19,7 @@ dependencies = [
     "typst",
     "jinja2",
     "structlog",
+    "tzdata>=2026.5",
 ]
 
 [dependency-groups]
@@ -29,6 +30,7 @@ dev = [
     "ruff",
     "mypy",
     "polyfactory",
+    "pytest-cov>=7.1.0",
 ]
 
 [project.scripts]

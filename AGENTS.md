@@ -57,6 +57,16 @@ Never delete, skip or weaken a failing test to make CI pass. Code that isn't int
 - **TypeScript:** strict mode, no `any`, API calls only via the generated client in `apps/web/lib/api.ts`, colors/radii/spacing only via CSS tokens in `globals.css`.
 - Match the surrounding code's naming, comment density and idioms.
 
+### 9a. Domain contracts (established by S1-02, `apps/api/app/domain/`)
+- **Vocabulary:** import every status, enum-like value and type alias from `app.domain.enums`. They're `Literal` string types, never `Enum`. Iterate them with the `ALL_*` tuples or `typing.get_args`. Never redeclare these strings elsewhere (e.g. a second `"next_steps"` list).
+- **Application status changes go through `state_machine.transition(...)` only.** Never assign `application.status` directly. Persist the returned `ApplicationEvent`, then call `notify_rules.channels_for(...)`. `InvalidTransition` maps to HTTP 409.
+- Only `actor="user"` may move an application to `withdrawn`, `accepted`, `declined` or `archived`, or use `override=True`. Email and system code paths must never pass `actor="user"`.
+- **Notification channels come only from `applications/notify_rules.py`.** Don't hard-code channels in services. Use `notify_rules.dedupe_key(...)` for `notifications.dedupe_key`.
+- **ATS adapters** return `domain.jobs.JobPosting` and raise only `SourceNotFound` (404) or `SourceTransientError` (429, 5xx, timeouts, network). Other exceptions inside a single job are caught, logged and skipped.
+- **LLM code** raises `LLMError` subclasses from `integrations/llm/base.py`. Callers catch `BudgetExceeded` to stop a run cleanly (status `partial`).
+- **Time:** domain functions take an optional `now: datetime` for deterministic tests. Default to `datetime.now(UTC)`, never naive datetimes.
+- **Preferences** come from `domain.preferences.Preferences`. An unknown job attribute passes a filter rule, and an empty `countries`/`cities` list means no constraint.
+
 ## 10. Dependencies
 - Every new runtime dependency needs a one-line justification in the PR. Prefer the standard library and existing dependencies.
 - Python dependencies are managed with `uv` (`apps/api/pyproject.toml`); JS dependencies with `pnpm`.
