@@ -5,7 +5,7 @@
 ## Now
 - **Sprint:** Sprint 1 "Data in" (Mon 2026-10-12 → Fri 2026-10-16)
 - **Sprint goal:** `just ingest` pulls real jobs for the seed companies from Greenhouse, Lever and Ashby into Postgres, deduplicated and deterministically filtered, and they're visible at `GET /jobs` and on a basic Feed page.
-- **Last updated:** 2026-10-09 by Opus 5.5 (S1-02 session)
+- **Last updated:** 2026-10-09 by Sonnet 5.5 (S1-04 session)
 - **Next action:** PO reviews/merges the S1-02 PR. Then Sonnet runs in parallel {S1-03, S1-04, S1-05, S1-06, S1-07, S1-11}, one worktree per story, each branched from `main` after S1-02 merges.
 
 ## Story board
@@ -14,7 +14,7 @@
 | S1-01 | Repo scaffold & tooling | 3 | done | PR #2 (merged) | Sonnet |
 | S1-02 | Domain contracts + state machine | 3 | review | story/S1-02-domain-contracts (PR open) | **Opus** |
 | S1-03 | ORM models + Alembic 0001 | 5 | todo | | Sonnet |
-| S1-04 | Greenhouse adapter | 2 | todo | | Sonnet |
+| S1-04 | Greenhouse adapter | 2 | review | story/S1-04-greenhouse-adapter (PR open) | Sonnet |
 | S1-05 | Lever adapter | 2 | todo | | Sonnet |
 | S1-06 | Ashby adapter | 2 | todo | | Sonnet |
 | S1-07 | Normalizers | 3 | todo | | Sonnet |
@@ -27,6 +27,9 @@
 Execution order: S1-01 → S1-02 → in parallel {S1-03, S1-04, S1-05, S1-06, S1-07, S1-11} → in parallel {S1-08, S1-09, S1-10}.
 
 ## In flight
+- **S1-04** is in review. Done: `integrations/ats/{base,greenhouse}.py`, `scripts/record_fixture.py` (shared by S1-05/06), fixture `tests/fixtures/greenhouse/board.json`, 24 tests.
+  - Verified: ruff, `mypy --strict`, pytest (no DB needed). **Not verified:** CI (first run is the PR).
+  - Reuse for S1-05/06: `ats/base.py` has `get()` (the 404 / 429+5xx / other error mapping, per-request 10s/30s timeouts), `json_body()` and `parse_iso()`. Record fixtures with `uv run python scripts/record_fixture.py <ats> <token> --record`.
 - **S1-02** is in review. Done: `app/domain/{enums,jobs,applications,state_machine,preferences}.py`, `integrations/llm/base.py`, `integrations/notify/base.py`, `applications/notify_rules.py`; 264 tests; AGENTS.md §9a (domain rules); ARCHITECTURE.md synced.
   - Verified: `ruff check`, `ruff format --check`, `mypy --strict` (app + new tests), and `pytest` with 100% branch coverage on `state_machine` and `notify_rules`.
   - Coverage check command: `uv run pytest --cov=app.domain.state_machine --cov=app.applications.notify_rules --cov-branch --cov-fail-under=100`.
@@ -50,6 +53,9 @@ Execution order: S1-01 → S1-02 → in parallel {S1-03, S1-04, S1-05, S1-06, S1
 - `just migrate` is a no-op until S1-03 adds `alembic.ini`; `just gen-types` is a stub until S1-11. `just test-web` is a production build until Playwright lands (S3-02).
 - Contracts are frozen after S1-02 merges (AGENTS.md §2). If a Sonnet story needs a new field or enum value, record it under Blocked / decisions needed instead of editing `app/domain/**`.
 - `just lint` uses `uv --directory` one command per line so a failure in an early command cannot be masked in PowerShell.
+
+- Greenhouse's API *does* have a publish date (`first_published`); the story notes said it did not. The adapter maps it to `posted_at` and keeps `updated_at` as `source_updated_at`. Expect similar drift in the Lever/Ashby notes: trust the recorded fixture.
+- Adapters catch `Exception` per job (AGENTS 9a), so a non-dict entry in the jobs array is skipped too.
 
 ## Velocity log
 | Sprint | Committed | Accepted |
