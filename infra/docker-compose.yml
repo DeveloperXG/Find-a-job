@@ -1,0 +1,37 @@
+name: find-a-job
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: jt
+      POSTGRES_PASSWORD: jt
+      POSTGRES_DB: jt
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    configs:
+      - source: create_test_db
+        target: /docker-entrypoint-initdb.d/10-create-test-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jt -d jt"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  inngest:
+    image: inngest/inngest
+    command: inngest dev -u http://host.docker.internal:8001/api/inngest
+    ports:
+      - "8288:8288"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+configs:
+  create_test_db:
+    content: |
+      CREATE DATABASE jt_test OWNER jt;
+
+volumes:
+  pgdata:
