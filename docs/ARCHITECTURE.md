@@ -108,6 +108,10 @@ class JobPosting(BaseModel):           # what every adapter returns
     posted_at: datetime|None; source_updated_at: datetime|None
     raw: dict[str, Any]
 
+class SourceError(Exception): ...           # base
+class SourceNotFound(SourceError): ...      # 404, not retried
+class SourceTransientError(SourceError): ...# 429/5xx/timeout/network, caller retries
+
 class JobSource(Protocol):
     ats: ATS
     async def fetch_jobs(self, token: str, client: httpx.AsyncClient) -> list[JobPosting]: ...
@@ -116,7 +120,8 @@ class JobSource(Protocol):
 # integrations/llm/base.py
 class LLMTask(StrEnum): SCORE="score"; EXTRACT="extract"; TAILOR="tailor"; CLASSIFY_EMAIL="classify_email"; ANSWER="answer"
 class LLMUsage(BaseModel): model: str; input_tokens: int; cached_input_tokens: int; output_tokens: int; cost_usd: Decimal
-class LLMResult(BaseModel, Generic[T]): data: T; usage: LLMUsage
+class LLMResult[T: BaseModel](BaseModel): data: T; usage: LLMUsage   # PEP 695 generics
+class LLMError(Exception)  ·  class LLMOutputInvalid(LLMError)  ·  class BudgetExceeded(LLMError)
 class LLMProvider(Protocol):
     async def structured(self, *, task: LLMTask, system: str, cached_context: str,
                          user: str, schema: type[T], max_tokens: int) -> LLMResult[T]: ...
@@ -141,7 +146,11 @@ offer       → accepted | declined
 terminal: rejected, withdrawn, accepted, declined, archived
 override:   any → any, only with actor="user" and override=True (fixes misclassification); always logged
 ```
-`transition(app, to, *, actor, stage=None, reason=None, override=False) -> ApplicationEvent` raises `InvalidTransition`. The service persists the event and emits the Inngest event `application/status.changed`.
+`transition(app: ApplicationState, to, *, actor, stage=None, reason=None, override=False, now=None) -> ApplicationEvent` raises `InvalidTransition`.
+Implemented rules (S1-02):
+- `withdrawn`, `accepted`, `declined` and `archived` are **user-only targets**. An `email` or `system` actor gets `InvalidTransition`, so an email classifier can never accept or decline an offer.
+- `next_steps → next_steps` requires a non-empty `stage` that differs from the current one. Entering `next_steps` from elsewhere may omit `stage`.
+- An override to the identical (status, stage) is rejected as a no-op. The service persists the event and emits the Inngest event `application/status.changed`.
 
 ### Notification rules matrix (`applications/notify_rules.py`, from the user's spec)
 | Transition | In-app | Push | Email |
@@ -153,6 +162,7 @@ override:   any → any, only with actor="user" and override=True (fixes misclas
 | any → offer | ✅ | ✅ | ✅ |
 | daily quota reached (Phase 3) | ✅ | ✅ | ✅ |
 | applied → no_response (auto after 30 d) | digest only | — | — |
+Implemented rules (S1-02): a rejection also notifies on all channels when it comes from `offer` (a rescinded offer, via user override). `→ applied` notifies in-app only. `withdrawn`/`accepted`/`declined`/`archived` notify nobody, because they're the user's own actions. Push priority is `high` for next_steps/offer and `default` otherwise.
 MVP sends in-app + push only. The email channel arrives in Phase 2, so in the MVP the rules return `email` and the email notifier is a no-op stub that logs.
 
 ---

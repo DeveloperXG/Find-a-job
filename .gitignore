@@ -22,3 +22,6 @@ out/
 Thumbs.db
 .idea/
 .vscode/
+# coverage
+.coverage
+htmlcov/
