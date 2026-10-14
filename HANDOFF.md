@@ -6,7 +6,7 @@
 - **Sprint:** Sprint 1 "Data in" (Mon 2026-10-12 → Fri 2026-10-16)
 - **Sprint goal:** `just ingest` pulls real jobs for the seed companies from Greenhouse, Lever and Ashby into Postgres, deduplicated and deterministically filtered, and they're visible at `GET /jobs` and on a basic Feed page.
 - **Last updated:** 2026-10-09 by Sonnet 5.5 (S1-04 session)
-- **Next action:** PO reviews/merges the S1-04 PR (#6). S1-03 is merged, so S1-08/09/10 are unblocked. Remaining parallel Sonnet stories: S1-05, S1-06, S1-07, S1-11 (branch each from `main`).
+- **Next action:** PO reviews/merges the S1-04 PR (#6). S1-03 is merged, so S1-08/09/10 are unblocked. Remaining parallel Sonnet stories: S1-05, S1-06, S1-07; S1-11 is in review (branch each from `main`).
 
 ## Story board
 | ID | Title | Pts | Status | Branch / PR | Owner |
@@ -22,12 +22,16 @@
 | S1-09 | Company registry + slug detect | 3 | todo | | Sonnet |
 | S1-10 | Preferences + filter engine | 3 | todo | | Sonnet |
 | — cut line — | | | | | |
-| S1-11 | Web scaffold + Feed v0 | 3 | todo | | Sonnet |
+| S1-11 | Web scaffold + Feed v0 | 3 | review | story/S1-11-web-feed-v0 | Sonnet |
 
 Execution order: S1-01 → S1-02 → in parallel {S1-03, S1-04, S1-05, S1-06, S1-07, S1-11} → in parallel {S1-08, S1-09, S1-10}.
 
 ## In flight
-- **S1-04** is in review. Done: `integrations/ats/{base,greenhouse}.py`, `scripts/record_fixture.py` (shared by S1-05/06), fixture `tests/fixtures/greenhouse/board.json`, 24 tests.
+- **S1-11** is in review. Done: app shell (sidebar/topbar/theme toggle), tokens in `globals.css`, `/feed` server-paginated table on **mock data** (500 rows, `?page=&size=`), real `just gen-types` (FastAPI openapi.json -> `packages/contracts/schema.d.ts`), 5 Playwright smoke tests (system Chrome; `pnpm --filter web test:e2e`).
+  - Verified: eslint, `tsc --noEmit`, `next build`, Playwright 5/5, Lighthouse accessibility 1.0 (prod build). **Not verified:** CI (Playwright is not wired into CI/`just test`; needs Chrome or `playwright install`).
+  - **Follow-up for S1-08:** `GET /jobs` is not in the OpenAPI schema yet. `apps/web/lib/api.ts` has hand-written `FeedJob`/`JobsPage` types and a mock `getJobsPage`; swap them for `paths["/jobs"]` + `api.GET("/jobs")` after running `just gen-types`.
+  - Extra files beyond the story list (needed by its test plan/scripts): `apps/web/{playwright.config.ts,tests/smoke.spec.ts,app/page.tsx,app/layout.tsx,package.json,.gitignore}`, `pnpm-lock.yaml`.
+- **S1-04** was in review (now merged). Done: `integrations/ats/{base,greenhouse}.py`, `scripts/record_fixture.py` (shared by S1-05/06), fixture `tests/fixtures/greenhouse/board.json`, 24 tests.
   - Verified: ruff, `mypy --strict`, pytest (no DB needed). **Not verified:** CI (first run is the PR).
   - Reuse for S1-05/06: `ats/base.py` has `get()` (the 404 / 429+5xx / other error mapping, per-request 10s/30s timeouts), `json_body()` and `parse_iso()`. Record fixtures with `uv run python scripts/record_fixture.py <ats> <token> --record`.
 
