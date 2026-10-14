@@ -45,9 +45,10 @@ lint:
     pnpm lint
     pnpm typecheck
 
-# Regenerates packages/contracts from FastAPI's OpenAPI (wired up in S1-11)
+# Regenerates packages/contracts from FastAPI's OpenAPI
 gen-types:
-    echo 'gen-types arrives with S1-11 (openapi-typescript + openapi-fetch)'
+    uv --directory apps/api run python -c "import json; from app.main import app; print(json.dumps(app.openapi(), indent=2))" > packages/contracts/openapi.json
+    pnpm --filter web exec openapi-typescript ../../packages/contracts/openapi.json -o ../../packages/contracts/schema.d.ts
 
 [working-directory: 'apps/api']
 ingest:
