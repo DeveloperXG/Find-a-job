@@ -5,8 +5,8 @@
 ## Now
 - **Sprint:** Sprint 1 "Data in" (Mon 2026-10-12 → Fri 2026-10-16)
 - **Sprint goal:** `just ingest` pulls real jobs for the seed companies from Greenhouse, Lever and Ashby into Postgres, deduplicated and deterministically filtered, and they're visible at `GET /jobs` and on a basic Feed page.
-- **Last updated:** 2026-10-14 by Sonnet 5.5 (S1-07 session)
-- **Next action:** PO reviews/merges the S1-04 PR (#6). S1-03 is merged, so S1-08/09/10 are unblocked. Remaining parallel Sonnet stories: S1-05, S1-06, S1-07, S1-11 (branch each from `main`).
+- **Last updated:** 2026-10-14 by Sonnet 5.5 (S1-05 session)
+- **Next action:** PO merges S1-05 (#7), then S1-06 (#8), then S1-11 (#9). Each later PR needs `main` merged in and this file re-resolved first. S1-08/09/10 start once S1-05 and S1-06 land.
 
 ## Story board
 | ID | Title | Pts | Status | Branch / PR | Owner |
@@ -14,10 +14,10 @@
 | S1-01 | Repo scaffold & tooling | 3 | done | PR #2 (merged) | Sonnet |
 | S1-02 | Domain contracts + state machine | 3 | done | PR #4 (merged) | **Opus** |
 | S1-03 | ORM models + Alembic 0001 | 5 | done | PR #5 (merged) | Sonnet |
-| S1-04 | Greenhouse adapter | 2 | review | story/S1-04-greenhouse-adapter (PR #6) | Sonnet |
-| S1-05 | Lever adapter | 2 | todo | | Sonnet |
+| S1-04 | Greenhouse adapter | 2 | done | PR #6 (merged) | Sonnet |
+| S1-05 | Lever adapter | 2 | review | story/S1-05-lever-adapter (PR #7) | Sonnet |
 | S1-06 | Ashby adapter | 2 | todo | | Sonnet |
-| S1-07 | Normalizers | 3 | review | story/S1-07-normalizers | Sonnet |
+| S1-07 | Normalizers | 3 | done | PR #10 (merged) | Sonnet |
 | S1-08 | Ingestion service + `jt ingest` | 5 | todo | | Sonnet |
 | S1-09 | Company registry + slug detect | 3 | todo | | Sonnet |
 | S1-10 | Preferences + filter engine | 3 | todo | | Sonnet |
@@ -27,11 +27,11 @@
 Execution order: S1-01 → S1-02 → in parallel {S1-03, S1-04, S1-05, S1-06, S1-07, S1-11} → in parallel {S1-08, S1-09, S1-10}.
 
 ## In flight
-- **S1-04** is in review. Done: `integrations/ats/{base,greenhouse}.py`, `scripts/record_fixture.py` (shared by S1-05/06), fixture `tests/fixtures/greenhouse/board.json`, 24 tests.
-  - Verified: ruff, `mypy --strict`, pytest (no DB needed). **Not verified:** CI (first run is the PR).
-  - Reuse for S1-05/06: `ats/base.py` has `get()` (the 404 / 429+5xx / other error mapping, per-request 10s/30s timeouts), `json_body()` and `parse_iso()`. Record fixtures with `uv run python scripts/record_fixture.py <ats> <token> --record`.
+- **S1-05** is in review. Done: `integrations/ats/lever.py`, fixture `tests/fixtures/lever/board.json` (3 postings recorded from Lever's public `leverdemo` board, a recruiter's name scrubbed), `tests/integrations/test_lever.py` (33 tests).
+  - Verified: ruff, `mypy --strict`, pytest (57 pass, no DB needed). **Not verified:** CI (first run is the PR).
+  - Reuse for S1-06: same pattern as Greenhouse/Lever (`ats/base.py` helpers, per-job `except Exception` skip + identifier-only log).
 
-- **S1-07** is in review. Done: `ingestion/normalize.py` (all spec functions) and `tests/ingestion/test_normalize.py` (220+ table-driven cases incl. all 20 target titles).
+- **S1-07** is merged (PR #10); kept here for the S1-08/S1-10 signatures. Done: `ingestion/normalize.py` (all spec functions) and `tests/ingestion/test_normalize.py` (220+ table-driven cases incl. all 20 target titles).
   - Verified: ruff, `mypy --strict`, pytest for ingestion/domain/integrations (DB tests not run, no DB locally). **Not verified:** CI.
   - Signatures for S1-08/S1-10: `infer_employment_type(title, hint)`, `parse_locations(raw, hint) -> (locations, workplace_type, countries)` (countries are ISO alpha-2, e.g. `US`, `CA`, `GB`), `content_hash(title, description_text, location_raw)`, `fingerprint(company_id, title_normalized, primary_location)`, `detect_work_auth_flags -> list[str]`, `parse_compensation_from_text -> Compensation | None`.
   - `extract_min_yoe` returns the highest *minimum* found ("3-5 years" -> 3), ignoring matches near "preferred / nice to have / bonus".
@@ -59,6 +59,8 @@ Execution order: S1-01 → S1-02 → in parallel {S1-03, S1-04, S1-05, S1-06, S1
 - Async SQLAlchemy: `Base` sets `eager_defaults=True` so server defaults (id, timestamps) are populated on INSERT; never access an expired attribute outside `await session.refresh(...)`.
 - Greenhouse's API *does* have a publish date (`first_published`); the story notes said it did not. The adapter maps it to `posted_at` and keeps `updated_at` as `source_updated_at`. Expect similar drift in the Lever/Ashby notes: trust the recorded fixture.
 - Adapters catch `Exception` per job (AGENTS 9a), so a non-dict entry in the jobs array is skipped too.
+- Lever: `createdAt` is epoch ms and there is no updated timestamp (`source_updated_at` stays None). `salaryRange.interval` is `per-year-salary` / `per-hour-wage` (others map to `unknown`). `commitment` is free text kept in `raw`, so S1-07 infers `employment_type` from it. The US host 404s for EU-hosted boards, so the adapter retries `api.eu.lever.co` and stores `raw["_region"]`; a 5xx/429 on US does not fall back.
+- `record_fixture.py --name` is used verbatim: pass `--name board.json` (with the extension).
 
 ## Velocity log
 | Sprint | Committed | Accepted |
