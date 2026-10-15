@@ -6,7 +6,7 @@
 - **Sprint:** Sprint 1 "Data in" (Mon 2026-10-12 → Fri 2026-10-16)
 - **Sprint goal:** `just ingest` pulls real jobs for the seed companies from Greenhouse, Lever and Ashby into Postgres, deduplicated and deterministically filtered, and they're visible at `GET /jobs` and on a basic Feed page.
 - **Last updated:** 2026-10-14 by Sonnet 5.5 (S1-05 session)
-- **Next action:** PO reviews/merges the S1-05 PR. S1-03 and S1-04 are merged, so S1-08/09/10 are unblocked once S1-05/06/07 land. Remaining parallel Sonnet stories: S1-06, S1-07, S1-11 (branch each from `main`).
+- **Next action:** PO merges S1-05 (#7), then S1-06 (#8), then S1-11 (#9). Each later PR needs `main` merged in and this file re-resolved first. S1-08/09/10 start once S1-05 and S1-06 land.
 
 ## Story board
 | ID | Title | Pts | Status | Branch / PR | Owner |
@@ -15,9 +15,9 @@
 | S1-02 | Domain contracts + state machine | 3 | done | PR #4 (merged) | **Opus** |
 | S1-03 | ORM models + Alembic 0001 | 5 | done | PR #5 (merged) | Sonnet |
 | S1-04 | Greenhouse adapter | 2 | done | PR #6 (merged) | Sonnet |
-| S1-05 | Lever adapter | 2 | review | story/S1-05-lever-adapter | Sonnet |
+| S1-05 | Lever adapter | 2 | review | story/S1-05-lever-adapter (PR #7) | Sonnet |
 | S1-06 | Ashby adapter | 2 | todo | | Sonnet |
-| S1-07 | Normalizers | 3 | todo | | Sonnet |
+| S1-07 | Normalizers | 3 | done | PR #10 (merged) | Sonnet |
 | S1-08 | Ingestion service + `jt ingest` | 5 | todo | | Sonnet |
 | S1-09 | Company registry + slug detect | 3 | todo | | Sonnet |
 | S1-10 | Preferences + filter engine | 3 | todo | | Sonnet |
@@ -30,6 +30,11 @@ Execution order: S1-01 → S1-02 → in parallel {S1-03, S1-04, S1-05, S1-06, S1
 - **S1-05** is in review. Done: `integrations/ats/lever.py`, fixture `tests/fixtures/lever/board.json` (3 postings recorded from Lever's public `leverdemo` board, a recruiter's name scrubbed), `tests/integrations/test_lever.py` (33 tests).
   - Verified: ruff, `mypy --strict`, pytest (57 pass, no DB needed). **Not verified:** CI (first run is the PR).
   - Reuse for S1-06: same pattern as Greenhouse/Lever (`ats/base.py` helpers, per-job `except Exception` skip + identifier-only log).
+
+- **S1-07** is merged (PR #10); kept here for the S1-08/S1-10 signatures. Done: `ingestion/normalize.py` (all spec functions) and `tests/ingestion/test_normalize.py` (220+ table-driven cases incl. all 20 target titles).
+  - Verified: ruff, `mypy --strict`, pytest for ingestion/domain/integrations (DB tests not run, no DB locally). **Not verified:** CI.
+  - Signatures for S1-08/S1-10: `infer_employment_type(title, hint)`, `parse_locations(raw, hint) -> (locations, workplace_type, countries)` (countries are ISO alpha-2, e.g. `US`, `CA`, `GB`), `content_hash(title, description_text, location_raw)`, `fingerprint(company_id, title_normalized, primary_location)`, `detect_work_auth_flags -> list[str]`, `parse_compensation_from_text -> Compensation | None`.
+  - `extract_min_yoe` returns the highest *minimum* found ("3-5 years" -> 3), ignoring matches near "preferred / nice to have / bonus".
 
 ## Blocked / decisions needed
 1. **Seed company list:** PO to fill in `data/companies.seed.csv` (≥ 30 companies) before S1-09's demo. *Recommendation:* start with companies known to hire new grads/interns in AI/ML and SDE; leave the ATS token columns blank and let auto-detect fill them.
